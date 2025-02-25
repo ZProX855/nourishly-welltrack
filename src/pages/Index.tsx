@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Scale } from "lucide-react";
+import { Scale, Target, Users, Route, Brain, ArrowRight } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -95,6 +95,52 @@ const Index = () => {
       </div>
     );
   };
+
+  const bodyTypes = [
+    {
+      type: "Ectomorph",
+      description: "Naturally lean and struggles to gain weight",
+      goals: ["Muscle gain", "Strength building", "Healthy weight gain"],
+      tips: ["Increase caloric intake", "Focus on compound exercises", "Frequent meals"],
+    },
+    {
+      type: "Mesomorph",
+      description: "Athletic build with moderate weight gain/loss ability",
+      goals: ["Muscle definition", "Athletic performance", "Body recomposition"],
+      tips: ["Balanced macronutrients", "Mixed training approach", "Regular exercise"],
+    },
+    {
+      type: "Endomorph",
+      description: "Tends to gain weight more easily",
+      goals: ["Fat loss", "Muscle maintenance", "Cardiovascular health"],
+      tips: ["Caloric deficit", "Regular cardio", "High protein intake"],
+    },
+  ];
+
+  const [selectedBodyType, setSelectedBodyType] = useState("");
+
+  const generalTips = [
+    {
+      icon: <Target className="w-6 h-6 text-wellness-600" />,
+      title: "Set Clear Goals",
+      description: "Define specific, measurable, and time-bound objectives",
+    },
+    {
+      icon: <Users className="w-6 h-6 text-wellness-600" />,
+      title: "Find Support",
+      description: "Connect with like-minded individuals or get a workout buddy",
+    },
+    {
+      icon: <Route className="w-6 h-6 text-wellness-600" />,
+      title: "Track Progress",
+      description: "Monitor your journey and celebrate small victories",
+    },
+    {
+      icon: <Brain className="w-6 h-6 text-wellness-600" />,
+      title: "Stay Consistent",
+      description: "Build healthy habits through regular practice",
+    },
+  ];
 
   return (
     <Layout>
@@ -265,6 +311,97 @@ const Index = () => {
               </button>
             </div>
           </Card>
+        </div>
+
+        <div className="mt-16 space-y-12">
+          <h2 className="text-2xl font-semibold text-wellness-700 text-center">
+            Your Wellness Journey
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {generalTips.map((tip, index) => (
+              <Card 
+                key={index} 
+                className="wellness-card hover:scale-102 transition-all duration-300 bg-white/80"
+              >
+                <div className="flex flex-col items-center text-center space-y-4">
+                  {tip.icon}
+                  <h3 className="font-semibold text-wellness-700">{tip.title}</h3>
+                  <p className="text-wellness-600 text-sm">{tip.description}</p>
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-wellness-700 text-center">
+              Understand Your Body Type
+            </h3>
+            
+            <div className="flex justify-center space-x-4">
+              {bodyTypes.map((type) => (
+                <button
+                  key={type.type}
+                  onClick={() => setSelectedBodyType(type.type)}
+                  className={`px-6 py-3 rounded-lg transition-all duration-300 ${
+                    selectedBodyType === type.type
+                      ? "bg-wellness-200 text-wellness-700 shadow-md"
+                      : "bg-wellness-50 text-wellness-600 hover:bg-wellness-100"
+                  }`}
+                >
+                  {type.type}
+                </button>
+              ))}
+            </div>
+
+            {selectedBodyType && (
+              <Card className="wellness-card animate-fade-in bg-white/80">
+                {bodyTypes
+                  .filter((type) => type.type === selectedBodyType)
+                  .map((type) => (
+                    <div key={type.type} className="space-y-6">
+                      <div className="space-y-2">
+                        <h4 className="text-lg font-semibold text-wellness-700">
+                          {type.type}
+                        </h4>
+                        <p className="text-wellness-600">{type.description}</p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h5 className="font-medium text-wellness-700">Common Goals:</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {type.goals.map((goal, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center space-x-2 text-wellness-600"
+                            >
+                              <ArrowRight className="w-4 h-4 text-wellness-500" />
+                              <span>{goal}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h5 className="font-medium text-wellness-700">
+                          Recommended Approach:
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {type.tips.map((tip, index) => (
+                            <div
+                              key={index}
+                              className="bg-wellness-50 p-4 rounded-lg text-wellness-600"
+                            >
+                              {tip}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </Card>
+            )}
+          </div>
         </div>
       </div>
     </Layout>
