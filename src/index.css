@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 60 30% 96%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -63,4 +63,14 @@
 
 .wellness-card {
   @apply p-6 rounded-xl glassmorphism hover:shadow-xl transition-all duration-300;
+}
+
+@keyframes scale-102 {
+  to {
+    transform: scale(1.02);
+  }
+}
+
+.scale-102 {
+  animation: scale-102 0.3s ease-out forwards;
 }

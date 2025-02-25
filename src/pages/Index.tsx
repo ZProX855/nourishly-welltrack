@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Heart, Scale } from "lucide-react";
+import { Scale } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -80,7 +80,7 @@ const Index = () => {
     };
 
     return (
-      <div className="space-y-6 mt-4">
+      <div className="space-y-6 mt-4 animate-fade-in">
         <h3 className="text-lg font-medium text-wellness-700">Enter a food</h3>
         <div className="space-y-4">
           <div className="flex justify-between text-sm">
@@ -99,21 +99,18 @@ const Index = () => {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Heart className="w-6 h-6 text-wellness-500" />
-          <h1 className="text-2xl font-semibold text-wellness-700">
-            Compare the nutritional value of any two foods!
-          </h1>
-        </div>
+        <h1 className="text-2xl font-semibold text-wellness-700 text-center mb-8 hover:scale-105 transition-all duration-300">
+          Compare the nutritional value of any two foods!
+        </h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <Card className="wellness-card">
+          <Card className="wellness-card transform hover:scale-102 transition-all duration-300 bg-white/80">
             <div className="space-y-4">
-              <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700">
+              <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700 hover:bg-wellness-200 transition-colors">
                 Manual Input
               </div>
               <Select value={food1} onValueChange={setFood1}>
-                <SelectTrigger className="wellness-input">
+                <SelectTrigger className="wellness-input hover:border-wellness-500 transition-colors">
                   <SelectValue placeholder="Select first food" />
                 </SelectTrigger>
                 <SelectContent>
@@ -129,7 +126,7 @@ const Index = () => {
                   type="number"
                   value={weight1}
                   onChange={(e) => setWeight1(e.target.value)}
-                  className="wellness-input"
+                  className="wellness-input hover:border-wellness-500 transition-colors"
                 />
                 <span className="text-wellness-600">grams</span>
               </div>
@@ -137,13 +134,13 @@ const Index = () => {
             </div>
           </Card>
 
-          <Card className="wellness-card">
+          <Card className="wellness-card transform hover:scale-102 transition-all duration-300 bg-white/80">
             <div className="space-y-4">
-              <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700">
+              <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700 hover:bg-wellness-200 transition-colors">
                 Manual Input
               </div>
               <Select value={food2} onValueChange={setFood2}>
-                <SelectTrigger className="wellness-input">
+                <SelectTrigger className="wellness-input hover:border-wellness-500 transition-colors">
                   <SelectValue placeholder="Select second food" />
                 </SelectTrigger>
                 <SelectContent>
@@ -159,7 +156,7 @@ const Index = () => {
                   type="number"
                   value={weight2}
                   onChange={(e) => setWeight2(e.target.value)}
-                  className="wellness-input"
+                  className="wellness-input hover:border-wellness-500 transition-colors"
                 />
                 <span className="text-wellness-600">grams</span>
               </div>
@@ -168,7 +165,7 @@ const Index = () => {
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:col-span-2">
-            <Card className="wellness-card">
+            <Card className="wellness-card transform hover:scale-102 transition-all duration-300 bg-white/80">
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <Scale className="w-5 h-5 text-wellness-500" />
@@ -227,15 +224,15 @@ const Index = () => {
               </div>
             </Card>
 
-            <Card className="wellness-card">
+            <Card className="wellness-card transform hover:scale-102 transition-all duration-300 bg-white/80">
               <h2 className="text-xl font-semibold mb-4 text-wellness-700">
                 AI Assistant
               </h2>
               <div className="h-[400px] flex flex-col">
                 <div className="flex-1 bg-wellness-50/50 rounded-lg p-4 mb-4 overflow-y-auto">
-                  <div className="flex flex-col space-y-4">
+                  <div className="flex flex-col space-y-4 animate-fade-in">
                     <div className="flex items-start gap-2">
-                      <div className="bg-white p-3 rounded-lg rounded-tl-none shadow-sm max-w-[80%]">
+                      <div className="bg-white p-3 rounded-lg rounded-tl-none shadow-sm max-w-[80%] hover:shadow-md transition-shadow">
                         Hi! How can I help you with your nutrition today?
                       </div>
                     </div>
@@ -247,7 +244,7 @@ const Index = () => {
                     placeholder="Type a message..."
                     className="w-full bg-transparent outline-none"
                   />
-                  <button className="wellness-button">
+                  <button className="wellness-button hover:bg-wellness-300 transition-colors">
                     Send
                   </button>
                 </div>
@@ -255,20 +252,17 @@ const Index = () => {
             </Card>
           </div>
 
-          <Card className="wellness-card md:col-span-2">
+          <Card className="wellness-card md:col-span-2 transform hover:scale-102 transition-all duration-300 bg-white/80">
             <h2 className="text-xl font-semibold mb-4 text-wellness-700">
               Meal Recognition
             </h2>
-            <div className="border-2 border-dashed border-wellness-200 rounded-lg p-8 text-center">
+            <div className="border-2 border-dashed border-wellness-200 rounded-lg p-8 text-center hover:border-wellness-300 transition-colors">
               <p className="text-wellness-600">
                 Drop an image here or click to upload
               </p>
-              <button className="wellness-button mt-4">
+              <button className="wellness-button mt-4 hover:bg-wellness-300 transition-colors">
                 Upload Image
               </button>
-            </div>
-            <div className="mt-4">
-              {/* Nutritional table for recognized meal would appear here using the same table component */}
             </div>
           </Card>
         </div>
