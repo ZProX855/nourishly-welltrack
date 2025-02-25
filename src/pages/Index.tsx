@@ -1,16 +1,8 @@
-
 import { Layout } from "@/components/Layout";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Heart } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -18,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 interface NutritionalInfo {
   calories: number;
@@ -33,7 +26,6 @@ const Index = () => {
   const [weight1, setWeight1] = useState("100");
   const [weight2, setWeight2] = useState("100");
 
-  // Placeholder data - would be replaced with actual API data
   const foodOptions = [
     { value: "chicken", label: "Chicken Breast", category: "Protein" },
     { value: "rice", label: "Brown Rice", category: "Carbs" },
@@ -50,7 +42,7 @@ const Index = () => {
     yogurt: { calories: 59, protein: 10, carbs: 3.6, fat: 0.4, fiber: 0 },
   };
 
-  const NutritionalTable = ({ foodId, weight }: { foodId: string; weight: string }) => {
+  const NutritionalProgress = ({ foodId, weight }: { foodId: string; weight: string }) => {
     if (!foodId) return null;
     const baseInfo = mockNutritionalInfo[foodId];
     if (!baseInfo) return null;
@@ -65,48 +57,38 @@ const Index = () => {
     };
 
     return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[200px]">Nutrient</TableHead>
-            <TableHead>Amount</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow>
-            <TableCell>Calories</TableCell>
-            <TableCell>{info.calories} kcal</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Protein</TableCell>
-            <TableCell>{info.protein}g</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Carbohydrates</TableCell>
-            <TableCell>{info.carbs}g</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Fat</TableCell>
-            <TableCell>{info.fat}g</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>Fiber</TableCell>
-            <TableCell>{info.fiber}g</TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+      <div className="space-y-6 mt-4">
+        <h3 className="text-lg font-medium text-wellness-700">Enter a food</h3>
+        <div className="space-y-4">
+          <div className="flex justify-between text-sm">
+            <span className="text-wellness-700">Calories</span>
+            <span className="text-wellness-600">{info.calories} kcal</span>
+          </div>
+          <ProgressBar value={info.protein} max={50} label="Protein" className="bg-wellness-100" />
+          <ProgressBar value={info.carbs} max={100} label="Carbs" className="bg-wellness-100" />
+          <ProgressBar value={info.fat} max={40} label="Fat" className="bg-wellness-100" />
+          <ProgressBar value={info.fiber} max={30} label="Fiber" className="bg-wellness-100" />
+        </div>
+      </div>
     );
   };
 
   return (
     <Layout>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-        <Card className="wellness-card">
-          <h2 className="text-xl font-semibold mb-4 text-wellness-700">
-            Compare Foods
-          </h2>
-          <div className="space-y-4">
-            <div className="space-y-2">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <Heart className="w-6 h-6 text-wellness-500" />
+          <h1 className="text-2xl font-semibold text-wellness-700">
+            Compare the nutritional value of any two foods!
+          </h1>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Card className="wellness-card">
+            <div className="space-y-4">
+              <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700">
+                Manual Input
+              </div>
               <Select value={food1} onValueChange={setFood1}>
                 <SelectTrigger className="wellness-input">
                   <SelectValue placeholder="Select first food" />
@@ -119,62 +101,94 @@ const Index = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <Input
-                type="number"
-                value={weight1}
-                onChange={(e) => setWeight1(e.target.value)}
-                placeholder="Weight in grams"
-                className="wellness-input"
-              />
-              {food1 && <NutritionalTable foodId={food1} weight={weight1} />}
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="number"
+                  value={weight1}
+                  onChange={(e) => setWeight1(e.target.value)}
+                  className="wellness-input"
+                />
+                <span className="text-wellness-600">grams</span>
+              </div>
+              {food1 && <NutritionalProgress foodId={food1} weight={weight1} />}
             </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="wellness-card">
-          <h2 className="text-xl font-semibold mb-4 text-wellness-700">
-            AI Assistant
-          </h2>
-          <div className="h-[400px] flex flex-col">
-            <div className="flex-1 bg-wellness-50/50 rounded-lg p-4 mb-4 overflow-y-auto">
-              <div className="flex flex-col space-y-4">
-                <div className="flex items-start gap-2">
-                  <div className="bg-white p-3 rounded-lg rounded-tl-none shadow-sm max-w-[80%]">
-                    Hi! How can I help you with your nutrition today?
+          <Card className="wellness-card">
+            <div className="space-y-4">
+              <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700">
+                Manual Input
+              </div>
+              <Select value={food2} onValueChange={setFood2}>
+                <SelectTrigger className="wellness-input">
+                  <SelectValue placeholder="Select second food" />
+                </SelectTrigger>
+                <SelectContent>
+                  {foodOptions.map((food) => (
+                    <SelectItem key={food.value} value={food.value}>
+                      {food.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="number"
+                  value={weight2}
+                  onChange={(e) => setWeight2(e.target.value)}
+                  className="wellness-input"
+                />
+                <span className="text-wellness-600">grams</span>
+              </div>
+              {food2 && <NutritionalProgress foodId={food2} weight={weight2} />}
+            </div>
+          </Card>
+
+          <Card className="wellness-card">
+            <h2 className="text-xl font-semibold mb-4 text-wellness-700">
+              AI Assistant
+            </h2>
+            <div className="h-[400px] flex flex-col">
+              <div className="flex-1 bg-wellness-50/50 rounded-lg p-4 mb-4 overflow-y-auto">
+                <div className="flex flex-col space-y-4">
+                  <div className="flex items-start gap-2">
+                    <div className="bg-white p-3 rounded-lg rounded-tl-none shadow-sm max-w-[80%]">
+                      Hi! How can I help you with your nutrition today?
+                    </div>
                   </div>
+                  {/* User messages would appear here with bg-wellness-100 and aligned right */}
                 </div>
-                {/* User messages would appear here with bg-wellness-100 and aligned right */}
+              </div>
+              <div className="wellness-input flex items-center space-x-2">
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  className="w-full bg-transparent outline-none"
+                />
+                <button className="wellness-button">
+                  Send
+                </button>
               </div>
             </div>
-            <div className="wellness-input flex items-center space-x-2">
-              <input
-                type="text"
-                placeholder="Type a message..."
-                className="w-full bg-transparent outline-none"
-              />
-              <button className="wellness-button">
-                Send
+          </Card>
+
+          <Card className="wellness-card md:col-span-2">
+            <h2 className="text-xl font-semibold mb-4 text-wellness-700">
+              Meal Recognition
+            </h2>
+            <div className="border-2 border-dashed border-wellness-200 rounded-lg p-8 text-center">
+              <p className="text-wellness-600">
+                Drop an image here or click to upload
+              </p>
+              <button className="wellness-button mt-4">
+                Upload Image
               </button>
             </div>
-          </div>
-        </Card>
-
-        <Card className="wellness-card md:col-span-2">
-          <h2 className="text-xl font-semibold mb-4 text-wellness-700">
-            Meal Recognition
-          </h2>
-          <div className="border-2 border-dashed border-wellness-200 rounded-lg p-8 text-center">
-            <p className="text-wellness-600">
-              Drop an image here or click to upload
-            </p>
-            <button className="wellness-button mt-4">
-              Upload Image
-            </button>
-          </div>
-          <div className="mt-4">
-            {/* Nutritional table for recognized meal would appear here using the same table component */}
-          </div>
-        </Card>
+            <div className="mt-4">
+              {/* Nutritional table for recognized meal would appear here using the same table component */}
+            </div>
+          </Card>
+        </div>
       </div>
     </Layout>
   );
