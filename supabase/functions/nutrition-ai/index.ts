@@ -19,6 +19,10 @@ serve(async (req) => {
     console.log('Request type:', type);
     console.log('Message:', message);
 
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not found in environment variables');
+    }
+
     let prompt = '';
     if (type === 'chat') {
       prompt = `You are a friendly nutrition expert. Answer the following question about nutrition, diet, or wellness: ${message}`;
@@ -42,7 +46,7 @@ serve(async (req) => {
     console.log('Sending prompt to Gemini:', prompt);
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: {
@@ -63,12 +67,17 @@ serve(async (req) => {
     );
 
     if (!response.ok) {
-      console.error('Gemini API error:', await response.text());
+      const errorText = await response.text();
+      console.error('Gemini API error:', errorText);
       throw new Error('Failed to get response from Gemini API');
     }
 
     const data = await response.json();
     console.log('Gemini API response:', data);
+
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error('Invalid response format from Gemini API');
+    }
 
     let result = data.candidates[0].content.parts[0].text;
 

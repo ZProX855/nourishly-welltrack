@@ -86,26 +86,38 @@ const Index = () => {
 
   const fetchNutritionalInfo = async (foodName: string) => {
     try {
-      const response = await fetch('/api/nutrition-ai', {
+      const response = await fetch('https://lxkowsyqeishluutfdfw.supabase.co/functions/v1/nutrition-ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4a293c3lxZWlzaGx1dXRmZGZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1NTIyNjQsImV4cCI6MjA1NjEyODI2NH0.D6uaO9IsIOT-A2WK3VHbS8o1Tx4olaxYQeBeIGnD2VI'
+        },
         body: JSON.stringify({
           type: 'food',
           message: `Provide nutritional information for ${foodName}`
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to fetch nutritional info');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error('Failed to fetch nutritional info');
+      }
 
-      const nutritionData = JSON.parse(await response.text());
+      const nutritionData = await response.json();
+      if (nutritionData.error) {
+        throw new Error(nutritionData.error);
+      }
+
       setNutritionalInfo(prev => ({
         ...prev,
         [foodName]: nutritionData
       }));
     } catch (error) {
+      console.error('Fetch error:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch nutritional information. Please try again.",
+        description: error.message || "Failed to fetch nutritional information. Please try again.",
         variant: "destructive"
       });
     }
@@ -128,23 +140,35 @@ const Index = () => {
     setLoadingChat(true);
 
     try {
-      const response = await fetch('/api/nutrition-ai', {
+      const response = await fetch('https://lxkowsyqeishluutfdfw.supabase.co/functions/v1/nutrition-ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4a293c3lxZWlzaGx1dXRmZGZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1NTIyNjQsImV4cCI6MjA1NjEyODI2NH0.D6uaO9IsIOT-A2WK3VHbS8o1Tx4olaxYQeBeIGnD2VI'
+        },
         body: JSON.stringify({
           type: 'chat',
           message: chatInput
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to get response');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error('Failed to get response');
+      }
 
-      const aiResponse = await response.text();
-      setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setMessages(prev => [...prev, { role: 'assistant', content: data }]);
     } catch (error) {
+      console.error('Chat error:', error);
       toast({
         title: "Error",
-        description: "Failed to get AI response. Please try again.",
+        description: error.message || "Failed to get AI response. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -258,27 +282,38 @@ const Index = () => {
       const base64String = reader.result as string;
       
       try {
-        const response = await fetch('/api/nutrition-ai', {
+        const response = await fetch('https://lxkowsyqeishluutfdfw.supabase.co/functions/v1/nutrition-ai', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4a293c3lxZWlzaGx1dXRmZGZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA1NTIyNjQsImV4cCI6MjA1NjEyODI2NH0.D6uaO9IsIOT-A2WK3VHbS8o1Tx4olaxYQeBeIGnD2VI'
+          },
           body: JSON.stringify({
             type: 'image',
             message: base64String
           }),
         });
 
-        if (!response.ok) throw new Error('Failed to analyze image');
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
+          throw new Error('Failed to analyze image');
+        }
 
         const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
         toast({
           title: "Image Analysis Complete",
-          description: "Nutritional information has been retrieved.",
+          description: data,
         });
-        // You can add state here to display the results
       } catch (error) {
+        console.error('Image analysis error:', error);
         toast({
           title: "Error",
-          description: "Failed to analyze image. Please try again.",
+          description: error.message || "Failed to analyze image. Please try again.",
           variant: "destructive"
         });
       }
