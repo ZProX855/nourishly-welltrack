@@ -249,6 +249,43 @@ const Index = () => {
     },
   ];
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      
+      try {
+        const response = await fetch('/api/nutrition-ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'image',
+            message: base64String
+          }),
+        });
+
+        if (!response.ok) throw new Error('Failed to analyze image');
+
+        const data = await response.json();
+        toast({
+          title: "Image Analysis Complete",
+          description: "Nutritional information has been retrieved.",
+        });
+        // You can add state here to display the results
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to analyze image. Please try again.",
+          variant: "destructive"
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <Layout>
       <div className="max-w-6xl mx-auto px-4">
@@ -463,12 +500,23 @@ const Index = () => {
               Meal Recognition
             </h2>
             <div className="border-2 border-dashed border-wellness-200 rounded-lg p-8 text-center hover:border-wellness-300 transition-colors">
-              <p className="text-wellness-600">
-                Drop an image here or click to upload
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="meal-image"
+              />
+              <p className="text-wellness-600 mb-4">
+                Drop a photo of your meal here or click to upload
               </p>
-              <button className="wellness-button mt-4 hover:bg-wellness-300 transition-colors">
+              <label
+                htmlFor="meal-image"
+                className="wellness-button cursor-pointer inline-block"
+              >
+                <Upload className="w-4 h-4 inline-block mr-2" />
                 Upload Image
-              </button>
+              </label>
             </div>
           </Card>
         </div>
