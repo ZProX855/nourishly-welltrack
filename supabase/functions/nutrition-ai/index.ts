@@ -25,10 +25,9 @@ serve(async (req) => {
 
     let prompt = '';
     if (type === 'chat') {
-      prompt = `You are a friendly nutrition expert. Answer the following question about nutrition, diet, or wellness: ${message}`;
+      prompt = `You are a friendly nutrition expert assistant. Always provide your responses with emojis and bullet points where appropriate. Answer the following question about nutrition, diet, or wellness in a conversational tone: ${message}`;
     } else if (type === 'food') {
       prompt = `For the given food item, provide accurate nutritional information per 100g. 
-      Include calories, protein, carbs, fat, and fiber.
       Return ONLY a JSON object in this exact format, with numerical values:
       {
         "calories": number,
@@ -40,13 +39,13 @@ serve(async (req) => {
       
       Food item: ${message}`;
     } else if (type === 'image') {
-      prompt = `Analyze this image and identify the food items present. For each item, estimate portion size and nutritional value: ${message}`;
+      prompt = `Analyze this image of food and provide a detailed breakdown of the meal's contents, estimated portions, and nutritional value. Be specific but conversational: ${message}`;
     }
 
     console.log('Sending prompt to Gemini:', prompt);
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: {
@@ -84,12 +83,27 @@ serve(async (req) => {
     // For food type requests, ensure we return valid JSON
     if (type === 'food') {
       try {
-        // Parse and validate the JSON structure
-        const nutritionData = JSON.parse(result);
-        if (!nutritionData.calories || !nutritionData.protein || !nutritionData.carbs || !nutritionData.fat || !nutritionData.fiber) {
+        // Try to parse the response as JSON
+        let nutritionData;
+        try {
+          nutritionData = JSON.parse(result);
+        } catch {
+          // If parsing fails, try to extract JSON from the text
+          const jsonMatch = result.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            nutritionData = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('Could not extract JSON from response');
+          }
+        }
+
+        // Validate the structure
+        if (!nutritionData.calories || !nutritionData.protein || 
+            !nutritionData.carbs || !nutritionData.fat || !nutritionData.fiber) {
           throw new Error('Invalid nutrition data format');
         }
-        // Return the raw JSON data for food type requests
+
+        // Return the validated JSON data
         return new Response(JSON.stringify(nutritionData), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -115,3 +129,4 @@ serve(async (req) => {
     );
   }
 });
+
