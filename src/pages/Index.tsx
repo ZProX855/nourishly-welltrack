@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Scale, Target, Users, Route, Brain, ArrowRight } from "lucide-react";
+import { Scale, Target, Users, Route, Brain, ArrowRight, Send, Upload } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { useToast } from "@/components/ui/use-toast";
 
 interface NutritionalInfo {
   calories: number;
@@ -20,7 +21,13 @@ interface NutritionalInfo {
   fiber: number;
 }
 
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 const Index = () => {
+  const { toast } = useToast();
   const [food1, setFood1] = useState("");
   const [food2, setFood2] = useState("");
   const [weight1, setWeight1] = useState("100");
@@ -29,21 +36,120 @@ const Index = () => {
   const [weight, setWeight] = useState("");
   const [bmi, setBmi] = useState<number | null>(null);
   const [bmiCategory, setBmiCategory] = useState<string>("");
+  const [chatInput, setChatInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: "👋 Hi! I'm your friendly nutrition assistant. How can I help you today?" }
+  ]);
+  const [loadingChat, setLoadingChat] = useState(false);
 
-  const foodOptions = [
-    { value: "chicken", label: "Chicken Breast", category: "Protein" },
-    { value: "rice", label: "Brown Rice", category: "Carbs" },
-    { value: "avocado", label: "Avocado", category: "Fats" },
-    { value: "apple", label: "Apple", category: "Fruits" },
-    { value: "yogurt", label: "Greek Yogurt", category: "Dairy" },
-  ];
+  const foodCategories = {
+    'Proteins': [
+      'Chicken Breast', 'Salmon', 'Beef Steak', 'Tofu', 'Eggs', 
+      'Greek Yogurt', 'Tuna', 'Turkey', 'Shrimp', 'Tempeh',
+      'Cottage Cheese', 'Pork Chop', 'Lamb', 'Chickpeas', 'Black Beans'
+    ],
+    'Grains': [
+      'Brown Rice', 'Quinoa', 'Oatmeal', 'Whole Wheat Bread', 'Pasta',
+      'Barley', 'Buckwheat', 'Millet', 'Couscous', 'Bulgur',
+      'Rice Noodles', 'Corn Tortilla', 'Rye Bread', 'Farro', 'Wild Rice'
+    ],
+    'Vegetables': [
+      'Broccoli', 'Spinach', 'Kale', 'Sweet Potato', 'Carrot',
+      'Bell Pepper', 'Cucumber', 'Tomato', 'Zucchini', 'Cauliflower',
+      'Brussels Sprouts', 'Asparagus', 'Green Beans', 'Eggplant', 'Mushrooms'
+    ],
+    'Fruits': [
+      'Apple', 'Banana', 'Orange', 'Strawberries', 'Blueberries',
+      'Mango', 'Pineapple', 'Avocado', 'Grape', 'Watermelon',
+      'Kiwi', 'Peach', 'Pear', 'Pomegranate', 'Raspberries'
+    ],
+    'Healthy Fats': [
+      'Olive Oil', 'Almonds', 'Walnuts', 'Chia Seeds', 'Flax Seeds',
+      'Coconut Oil', 'Avocado Oil', 'Peanut Butter', 'Sunflower Seeds', 'Pumpkin Seeds',
+      'Cashews', 'Macadamia Nuts', 'Pistachios', 'Hemp Seeds', 'Brazil Nuts'
+    ]
+  };
 
-  const mockNutritionalInfo: Record<string, NutritionalInfo> = {
-    chicken: { calories: 165, protein: 31, carbs: 0, fat: 3.6, fiber: 0 },
-    rice: { calories: 111, protein: 2.6, carbs: 23, fat: 0.9, fiber: 1.8 },
-    avocado: { calories: 160, protein: 2, carbs: 8.5, fat: 14.7, fiber: 6.7 },
-    apple: { calories: 52, protein: 0.3, carbs: 14, fat: 0.2, fiber: 2.4 },
-    yogurt: { calories: 59, protein: 10, carbs: 3.6, fat: 0.4, fiber: 0 },
+  const getFoodOptions = () => {
+    return Object.entries(foodCategories).flatMap(([category, foods]) =>
+      foods.map(food => ({
+        value: food.toLowerCase().replace(/\s+/g, '-'),
+        label: food,
+        category
+      }))
+    );
+  };
+
+  const foodOptions = getFoodOptions();
+
+  const [nutritionalInfo, setNutritionalInfo] = useState<Record<string, NutritionalInfo>>({});
+
+  const fetchNutritionalInfo = async (foodName: string) => {
+    try {
+      const response = await fetch('/api/nutrition-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'food',
+          message: `Provide nutritional information for ${foodName}`
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch nutritional info');
+
+      const nutritionData = JSON.parse(await response.text());
+      setNutritionalInfo(prev => ({
+        ...prev,
+        [foodName]: nutritionData
+      }));
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch nutritional information. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleFoodSelection = async (value: string, setFood: (value: string) => void) => {
+    setFood(value);
+    const foodName = foodOptions.find(f => f.value === value)?.label || '';
+    if (foodName && !nutritionalInfo[foodName]) {
+      await fetchNutritionalInfo(foodName);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!chatInput.trim()) return;
+
+    const newMessage: Message = { role: 'user', content: chatInput };
+    setMessages(prev => [...prev, newMessage]);
+    setChatInput('');
+    setLoadingChat(true);
+
+    try {
+      const response = await fetch('/api/nutrition-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'chat',
+          message: chatInput
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to get response');
+
+      const aiResponse = await response.text();
+      setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to get AI response. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingChat(false);
+    }
   };
 
   const calculateBMI = () => {
@@ -67,9 +173,10 @@ const Index = () => {
 
   const NutritionalProgress = ({ foodId, weight }: { foodId: string; weight: string }) => {
     if (!foodId) return null;
-    const baseInfo = mockNutritionalInfo[foodId];
-    if (!baseInfo) return null;
+    const foodName = foodOptions.find(f => f.value === foodId)?.label;
+    if (!foodName || !nutritionalInfo[foodName]) return null;
 
+    const baseInfo = nutritionalInfo[foodName];
     const multiplier = parseFloat(weight) / 100;
     const info = {
       calories: Math.round(baseInfo.calories * multiplier * 10) / 10,
@@ -81,7 +188,7 @@ const Index = () => {
 
     return (
       <div className="space-y-6 mt-4 animate-fade-in">
-        <h3 className="text-lg font-medium text-wellness-700">Enter a food</h3>
+        <h3 className="text-lg font-medium text-wellness-700">{foodName}</h3>
         <div className="space-y-4">
           <div className="flex justify-between text-sm">
             <span className="text-wellness-700">Calories</span>
@@ -155,15 +262,28 @@ const Index = () => {
               <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700 hover:bg-wellness-200 transition-colors">
                 Manual Input
               </div>
-              <Select value={food1} onValueChange={setFood1}>
+              <Select 
+                value={food1} 
+                onValueChange={(value) => handleFoodSelection(value, setFood1)}
+              >
                 <SelectTrigger className="wellness-input hover:border-wellness-500 transition-colors">
                   <SelectValue placeholder="Select first food" />
                 </SelectTrigger>
                 <SelectContent>
-                  {foodOptions.map((food) => (
-                    <SelectItem key={food.value} value={food.value}>
-                      {food.label}
-                    </SelectItem>
+                  {Object.entries(foodCategories).map(([category, foods]) => (
+                    <div key={category}>
+                      <div className="px-2 py-1.5 text-sm font-semibold text-wellness-700 bg-wellness-50">
+                        {category}
+                      </div>
+                      {foods.map((food) => (
+                        <SelectItem
+                          key={food}
+                          value={food.toLowerCase().replace(/\s+/g, '-')}
+                        >
+                          {food}
+                        </SelectItem>
+                      ))}
+                    </div>
                   ))}
                 </SelectContent>
               </Select>
@@ -185,15 +305,28 @@ const Index = () => {
               <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700 hover:bg-wellness-200 transition-colors">
                 Manual Input
               </div>
-              <Select value={food2} onValueChange={setFood2}>
+              <Select 
+                value={food2} 
+                onValueChange={(value) => handleFoodSelection(value, setFood2)}
+              >
                 <SelectTrigger className="wellness-input hover:border-wellness-500 transition-colors">
                   <SelectValue placeholder="Select second food" />
                 </SelectTrigger>
                 <SelectContent>
-                  {foodOptions.map((food) => (
-                    <SelectItem key={food.value} value={food.value}>
-                      {food.label}
-                    </SelectItem>
+                  {Object.entries(foodCategories).map(([category, foods]) => (
+                    <div key={category}>
+                      <div className="px-2 py-1.5 text-sm font-semibold text-wellness-700 bg-wellness-50">
+                        {category}
+                      </div>
+                      {foods.map((food) => (
+                        <SelectItem
+                          key={food}
+                          value={food.toLowerCase().replace(/\s+/g, '-')}
+                        >
+                          {food}
+                        </SelectItem>
+                      ))}
+                    </div>
                   ))}
                 </SelectContent>
               </Select>
@@ -272,26 +405,53 @@ const Index = () => {
 
             <Card className="wellness-card transform hover:scale-102 transition-all duration-300 bg-white/80">
               <h2 className="text-xl font-semibold mb-4 text-wellness-700">
-                AI Assistant
+                AI Nutrition Assistant
               </h2>
               <div className="h-[400px] flex flex-col">
                 <div className="flex-1 bg-wellness-50/50 rounded-lg p-4 mb-4 overflow-y-auto">
-                  <div className="flex flex-col space-y-4 animate-fade-in">
-                    <div className="flex items-start gap-2">
-                      <div className="bg-white p-3 rounded-lg rounded-tl-none shadow-sm max-w-[80%] hover:shadow-md transition-shadow">
-                        Hi! How can I help you with your nutrition today?
+                  <div className="flex flex-col space-y-4">
+                    {messages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-start gap-2 ${
+                          message.role === 'assistant' ? 'justify-start' : 'justify-end'
+                        }`}
+                      >
+                        <div
+                          className={`p-3 rounded-lg ${
+                            message.role === 'assistant'
+                              ? 'bg-white rounded-tl-none shadow-sm max-w-[80%]'
+                              : 'bg-wellness-100 rounded-tr-none shadow-sm max-w-[80%]'
+                          }`}
+                        >
+                          {message.content}
+                        </div>
                       </div>
-                    </div>
+                    ))}
+                    {loadingChat && (
+                      <div className="flex justify-start">
+                        <div className="bg-white p-3 rounded-lg rounded-tl-none shadow-sm">
+                          Typing...
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="wellness-input flex items-center space-x-2">
+                <div className="flex items-center space-x-2 p-2 border rounded-lg bg-white">
                   <input
                     type="text"
-                    placeholder="Type a message..."
-                    className="w-full bg-transparent outline-none"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Ask me about nutrition..."
+                    className="flex-1 bg-transparent outline-none"
                   />
-                  <button className="wellness-button hover:bg-wellness-300 transition-colors">
-                    Send
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={loadingChat}
+                    className="wellness-button p-2"
+                  >
+                    <Send className="w-4 h-4" />
                   </button>
                 </div>
               </div>
