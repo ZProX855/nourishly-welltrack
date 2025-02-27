@@ -1,85 +1,119 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-const USDA_API_KEY = 'yJ60gexnk0HR6Dz3vncFHCWP9m5Ius1vnEKEmoNm';
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function searchFoodInUSDA(query: string) {
-  try {
-    const searchResponse = await fetch(
-      `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_API_KEY}&query=${encodeURIComponent(query)}&pageSize=1`,
-      {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+const USDA_API_KEY = Deno.env.get('USDA_API_KEY');
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY!);
 
-    if (!searchResponse.ok) {
-      throw new Error('Failed to fetch from USDA API');
-    }
-
-    const searchData = await searchResponse.json();
-    if (!searchData.foods || searchData.foods.length === 0) {
-      throw new Error('No food found in USDA database');
-    }
-
-    const food = searchData.foods[0];
-    const nutrients = food.foodNutrients;
-
-    // Map USDA nutrients to our format
-    const nutritionData = {
-      calories: nutrients.find((n: any) => n.nutrientNumber === '208')?.value || 0,
-      protein: nutrients.find((n: any) => n.nutrientNumber === '203')?.value || 0,
-      carbs: nutrients.find((n: any) => n.nutrientNumber === '205')?.value || 0,
-      fat: nutrients.find((n: any) => n.nutrientNumber === '204')?.value || 0,
-      fiber: nutrients.find((n: any) => n.nutrientNumber === '291')?.value || 0,
-    };
-
-    return nutritionData;
-  } catch (error) {
-    console.error('USDA API error:', error);
-    throw error;
-  }
-}
-
-async function analyzeImageWithGemini(imageBase64: string) {
+async function searchUSDA(query: string) {
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Analyze this image of food and list each identifiable food item (no portion sizes needed): ${imageBase64}`
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1000,
-          },
-        }),
-      }
+      `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_API_KEY}&query=${encodeURIComponent(query)}&dataType=SR%20Legacy,Survey%20(FNDDS),Foundation,Branded&pageSize=1`
     );
-
+    
     if (!response.ok) {
-      throw new Error('Failed to analyze image with Gemini');
+      throw new Error('USDA API request failed');
     }
 
     const data = await response.json();
-    const foodList = data.candidates[0].content.parts[0].text;
-    return foodList;
+    if (data.foods && data.foods.length > 0) {
+      const food = data.foods[0];
+      const nutrients = food.foodNutrients;
+      
+      return {
+        calories: nutrients.find((n: any) => n.nutrientName === "Energy")?.value || 0,
+        protein: nutrients.find((n: any) => n.nutrientName === "Protein")?.value || 0,
+        carbs: nutrients.find((n: any) => n.nutrientName === "Carbohydrate, by difference")?.value || 0,
+        fat: nutrients.find((n: any) => n.nutrientName === "Total lipid (fat)")?.value || 0,
+        fiber: nutrients.find((n: any) => n.nutrientName === "Fiber, total dietary")?.value || 0,
+      };
+    }
+    return null;
   } catch (error) {
-    console.error('Gemini API error:', error);
-    throw error;
+    console.error('USDA API Error:', error);
+    return null;
+  }
+}
+
+async function getNutritionFromAI(food: string) {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
+  
+  const prompt = `You are a nutrition expert. Please provide accurate nutritional information for 100g of ${food}. 
+  Return ONLY a JSON object with these fields (all numbers):
+  {
+    "calories": calories in kcal,
+    "protein": grams of protein,
+    "carbs": grams of carbohydrates,
+    "fat": grams of fat,
+    "fiber": grams of fiber
+  }
+  Use your knowledge and reliable sources to provide accurate values. Return ONLY the JSON object, no other text.`;
+
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  const text = response.text();
+  
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    console.error('AI Response parsing error:', error);
+    return null;
+  }
+}
+
+async function analyzeImage(imageBase64: string, weight: string) {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro-vision-latest" });
+
+  const prompt = `You are a nutrition expert analyzing this food image. Please:
+  1. List all identifiable foods and ingredients
+  2. For the entire meal (${weight}g), estimate:
+  - Calories (kcal)
+  - Protein (g)
+  - Carbohydrates (g)
+  - Fat (g)
+  - Fiber (g)
+  
+  Return ONLY a JSON object in this format:
+  {
+    "identified_foods": ["food1", "food2", ...],
+    "nutrition": {
+      "calories": number,
+      "protein": number,
+      "carbs": number,
+      "fat": number,
+      "fiber": number
+    }
+  }`;
+
+  try {
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: imageBase64.split(",")[1]
+        }
+      }
+    ]);
+    const response = result.response;
+    const text = response.text();
+    
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error('AI image analysis parsing error:', error);
+      return null;
+    }
+  } catch (error) {
+    console.error('AI image analysis error:', error);
+    return null;
   }
 }
 
@@ -90,107 +124,73 @@ serve(async (req) => {
 
   try {
     const { type, message, weight } = await req.json();
-    console.log('Request type:', type);
-    console.log('Message:', message);
 
     if (type === 'food') {
-      const nutritionData = await searchFoodInUSDA(message);
+      // First try USDA database
+      const usdaData = await searchUSDA(message.replace('Provide nutritional information for ', ''));
       
-      if (weight) {
-        const multiplier = parseFloat(weight) / 100;
-        Object.keys(nutritionData).forEach(key => {
-          nutritionData[key] = Math.round(nutritionData[key] * multiplier * 10) / 10;
+      if (usdaData) {
+        console.log('Using USDA data for:', message);
+        return new Response(JSON.stringify(usdaData), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
 
-      return new Response(JSON.stringify(nutritionData), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    } else if (type === 'image') {
-      const foodList = await analyzeImageWithGemini(message);
-      if (weight) {
-        // If weight is provided, get nutrition info for the identified foods
-        const foods = foodList.split('\n').filter(f => f.trim());
-        const nutritionPromises = foods.map(food => searchFoodInUSDA(food.trim()));
-        const nutritionResults = await Promise.all(nutritionPromises);
-        
-        // Combine nutrition data and apply weight multiplier
-        const totalNutrition = nutritionResults.reduce((acc, curr) => {
-          Object.keys(curr).forEach(key => {
-            acc[key] = (acc[key] || 0) + curr[key];
-          });
-          return acc;
-        }, {});
-
-        const multiplier = parseFloat(weight) / 100;
-        Object.keys(totalNutrition).forEach(key => {
-          totalNutrition[key] = Math.round(totalNutrition[key] * multiplier * 10) / 10;
-        });
-
-        return new Response(JSON.stringify({
-          identified_foods: foods,
-          nutrition: totalNutrition
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      // If USDA fails, use AI
+      console.log('USDA data not found, using AI for:', message);
+      const aiData = await getNutritionFromAI(message.replace('Provide nutritional information for ', ''));
+      
+      if (!aiData) {
+        throw new Error('Failed to get nutritional information');
       }
-      return new Response(JSON.stringify({ identified_foods: foodList }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    } else if (type === 'chat') {
-      let prompt = `You are a friendly nutrition expert assistant. Always provide your responses with emojis and bullet points where appropriate. Answer the following question about nutrition, diet, or wellness in a conversational tone: ${message}`;
-      console.log('Sending prompt to Gemini:', prompt);
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+      return new Response(JSON.stringify(aiData), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (type === 'image') {
+      const analysisResult = await analyzeImage(message, weight);
+      
+      if (!analysisResult) {
+        throw new Error('Failed to analyze image');
+      }
+
+      return new Response(JSON.stringify(analysisResult), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (type === 'chat') {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
+      const chat = model.startChat({
+        history: [
+          {
+            role: "user",
+            parts: "You are a friendly and knowledgeable nutrition assistant. Be concise but helpful."
           },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: prompt
-              }]
-            }],
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 1000,
-            },
-          }),
-        }
-      );
+          {
+            role: "model",
+            parts: "I understand. I'll provide helpful, accurate, and concise nutrition advice."
+          }
+        ]
+      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Gemini API error:', errorText);
-        throw new Error('Failed to get response from Gemini API');
-      }
+      const result = await chat.sendMessage(message);
+      const response = result.response;
+      const text = response.text();
 
-      const data = await response.json();
-      console.log('Gemini API response:', data);
-
-      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-        throw new Error('Invalid response format from Gemini API');
-      }
-
-      let result = data.candidates[0].content.parts[0].text;
-
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return new Response(JSON.stringify(text), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     throw new Error('Invalid request type');
   } catch (error) {
-    console.error('Error in edge function:', error);
+    console.error('Edge function error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ error: error.message || 'An unexpected error occurred' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
