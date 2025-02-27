@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Scale, Target, Users, Route, Brain, ArrowRight, Send, Upload, Camera } from "lucide-react";
+import { Scale, Target, Users, Route, Brain, ArrowRight, Send, Upload } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -41,9 +41,6 @@ const Index = () => {
     { role: 'assistant', content: "👋 Hi! I'm your friendly nutrition assistant. How can I help you today?" }
   ]);
   const [loadingChat, setLoadingChat] = useState(false);
-  const [imageWeight, setImageWeight] = useState("100");
-  const [identifiedFoods, setIdentifiedFoods] = useState<string[]>([]);
-  const [imageNutrition, setImageNutrition] = useState<NutritionalInfo | null>(null);
 
   const foodCategories = {
     'Proteins': [
@@ -97,33 +94,32 @@ const Index = () => {
         },
         body: JSON.stringify({
           type: 'food',
-          message: foodName
+          message: `Provide nutritional information for ${foodName}`
         }),
       });
 
-      const data = await response.json();
-      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error('Failed to fetch nutritional info');
+      }
+
+      const nutritionData = await response.json();
+      if (nutritionData.error) {
+        throw new Error(nutritionData.error);
+      }
+
       setNutritionalInfo(prev => ({
         ...prev,
-        [foodName]: data
+        [foodName]: nutritionData
       }));
-
-      toast({
-        title: "Information Retrieved",
-        description: "Nutritional information has been estimated",
-      });
     } catch (error) {
       console.error('Fetch error:', error);
-      setNutritionalInfo(prev => ({
-        ...prev,
-        [foodName]: {
-          calories: 100,
-          protein: 5,
-          carbs: 15,
-          fat: 3,
-          fiber: 2
-        }
-      }));
+      toast({
+        title: "Error",
+        description: error.message || "Failed to fetch nutritional information. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -156,14 +152,25 @@ const Index = () => {
         }),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error('Failed to get response');
+      }
+
       const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       setMessages(prev => [...prev, { role: 'assistant', content: data }]);
     } catch (error) {
       console.error('Chat error:', error);
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: "I understand your question about nutrition. Let me provide some general guidance based on healthy eating principles..." 
-      }]);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to get AI response. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setLoadingChat(false);
     }
@@ -283,29 +290,32 @@ const Index = () => {
           },
           body: JSON.stringify({
             type: 'image',
-            message: base64String,
-            weight: imageWeight
+            message: base64String
           }),
         });
 
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
+          throw new Error('Failed to analyze image');
+        }
+
         const data = await response.json();
-        setImageNutrition(data.nutrition);
-        setIdentifiedFoods(data.identified_foods);
-        
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
         toast({
-          title: "Analysis Complete",
-          description: "Image has been analyzed",
+          title: "Image Analysis Complete",
+          description: data,
         });
       } catch (error) {
         console.error('Image analysis error:', error);
-        setImageNutrition({
-          calories: 250,
-          protein: 10,
-          carbs: 30,
-          fat: 8,
-          fiber: 4
+        toast({
+          title: "Error",
+          description: error.message || "Failed to analyze image. Please try again.",
+          variant: "destructive"
         });
-        setIdentifiedFoods(["Analyzing meal components..."]);
       }
     };
     reader.readAsDataURL(file);
@@ -313,16 +323,16 @@ const Index = () => {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-wellness-700 text-center mb-12 hover:scale-105 transition-all duration-300">
-          Nutrition Tracker & Analyzer
+      <div className="max-w-6xl mx-auto px-4">
+        <h1 className="text-2xl font-semibold text-wellness-700 text-center mb-8 hover:scale-105 transition-all duration-300">
+          Compare the nutritional value of any two foods!
         </h1>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <Card className="wellness-card transform hover:scale-102 transition-all duration-300 backdrop-blur-sm bg-white/90">
-            <div className="p-6 space-y-4">
+          <Card className="wellness-card transform hover:scale-102 transition-all duration-300 bg-white/80">
+            <div className="space-y-4">
               <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700 hover:bg-wellness-200 transition-colors">
-                Food Item 1
+                Manual Input
               </div>
               <Select 
                 value={food1} 
@@ -355,7 +365,6 @@ const Index = () => {
                   value={weight1}
                   onChange={(e) => setWeight1(e.target.value)}
                   className="wellness-input hover:border-wellness-500 transition-colors"
-                  min="0"
                 />
                 <span className="text-wellness-600">grams</span>
               </div>
@@ -363,10 +372,10 @@ const Index = () => {
             </div>
           </Card>
 
-          <Card className="wellness-card transform hover:scale-102 transition-all duration-300 backdrop-blur-sm bg-white/90">
-            <div className="p-6 space-y-4">
+          <Card className="wellness-card transform hover:scale-102 transition-all duration-300 bg-white/80">
+            <div className="space-y-4">
               <div className="inline-block px-4 py-2 rounded-lg bg-wellness-100 text-wellness-700 hover:bg-wellness-200 transition-colors">
-                Food Item 2
+                Manual Input
               </div>
               <Select 
                 value={food2} 
@@ -399,7 +408,6 @@ const Index = () => {
                   value={weight2}
                   onChange={(e) => setWeight2(e.target.value)}
                   className="wellness-input hover:border-wellness-500 transition-colors"
-                  min="0"
                 />
                 <span className="text-wellness-600">grams</span>
               </div>
@@ -407,71 +415,68 @@ const Index = () => {
             </div>
           </Card>
 
-          <Card className="wellness-card transform hover:scale-102 transition-all duration-300 backdrop-blur-sm bg-white/90">
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <Scale className="w-5 h-5 text-wellness-500" />
-                <h2 className="text-xl font-semibold text-wellness-700">BMI Calculator</h2>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:col-span-2">
+            <Card className="wellness-card transform hover:scale-102 transition-all duration-300 bg-white/80">
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-wellness-600 mb-1">Height (cm)</label>
-                  <Input
-                    type="number"
-                    value={height}
-                    onChange={(e) => setHeight(e.target.value)}
-                    placeholder="Enter your height"
-                    className="wellness-input"
-                    min="0"
-                  />
+                <div className="flex items-center gap-2">
+                  <Scale className="w-5 h-5 text-wellness-500" />
+                  <h2 className="text-xl font-semibold text-wellness-700">BMI Calculator</h2>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-wellness-600 mb-1">Weight (kg)</label>
-                  <Input
-                    type="number"
-                    value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
-                    placeholder="Enter your weight"
-                    className="wellness-input"
-                    min="0"
-                  />
-                </div>
-                <button
-                  onClick={calculateBMI}
-                  className="w-full px-4 py-2 bg-wellness-500 text-white rounded-lg hover:bg-wellness-600 transition-colors"
-                >
-                  Calculate BMI
-                </button>
-                {bmi !== null && (
-                  <div className="mt-4 p-4 rounded-lg bg-wellness-50">
-                    <div className="text-center">
-                      <p className="text-2xl font-bold text-wellness-700">{bmi}</p>
-                      <p className="text-wellness-600">{bmiCategory}</p>
-                    </div>
-                    <div className="mt-4">
-                      <div className="h-2 w-full bg-wellness-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-wellness-500 rounded-full transition-all duration-500 ease-out"
-                          style={{ width: `${Math.min((bmi / 40) * 100, 100)}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between mt-1 text-xs text-wellness-600">
-                        <span>18.5</span>
-                        <span>25</span>
-                        <span>30</span>
-                        <span>40</span>
-                      </div>
-                    </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-wellness-600 mb-1">Height (cm)</label>
+                    <Input
+                      type="number"
+                      value={height}
+                      onChange={(e) => setHeight(e.target.value)}
+                      placeholder="Enter your height"
+                      className="wellness-input"
+                    />
                   </div>
-                )}
+                  <div>
+                    <label className="block text-sm font-medium text-wellness-600 mb-1">Weight (kg)</label>
+                    <Input
+                      type="number"
+                      value={weight}
+                      onChange={(e) => setWeight(e.target.value)}
+                      placeholder="Enter your weight"
+                      className="wellness-input"
+                    />
+                  </div>
+                  <button
+                    onClick={calculateBMI}
+                    className="wellness-button w-full"
+                  >
+                    Calculate BMI
+                  </button>
+                  {bmi !== null && (
+                    <div className="mt-4 p-4 rounded-lg bg-wellness-50">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-wellness-700">{bmi}</p>
+                        <p className="text-wellness-600">{bmiCategory}</p>
+                      </div>
+                      <div className="mt-4">
+                        <div className="h-2 w-full bg-wellness-100 rounded-full">
+                          <div
+                            className="h-full bg-wellness-500 rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${Math.min((bmi / 40) * 100, 100)}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between mt-1 text-xs text-wellness-600">
+                          <span>18.5</span>
+                          <span>25</span>
+                          <span>30</span>
+                          <span>40</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          <Card className="wellness-card transform hover:scale-102 transition-all duration-300 backdrop-blur-sm bg-white/90">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4 text-wellness-700 flex items-center gap-2">
-                <Brain className="w-5 h-5" />
+            <Card className="wellness-card transform hover:scale-102 transition-all duration-300 bg-white/80">
+              <h2 className="text-xl font-semibold mb-4 text-wellness-700">
                 AI Nutrition Assistant
               </h2>
               <div className="h-[400px] flex flex-col">
@@ -497,7 +502,7 @@ const Index = () => {
                     ))}
                     {loadingChat && (
                       <div className="flex justify-start">
-                        <div className="bg-white p-3 rounded-lg rounded-tl-none shadow-sm animate-pulse">
+                        <div className="bg-white p-3 rounded-lg rounded-tl-none shadow-sm">
                           Typing...
                         </div>
                       </div>
@@ -505,95 +510,142 @@ const Index = () => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2 p-2 border rounded-lg bg-white">
-                  <Input
+                  <input
                     type="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !loadingChat && handleSendMessage()}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     placeholder="Ask me about nutrition..."
-                    className="flex-1 bg-transparent outline-none border-none focus:ring-0"
-                    disabled={loadingChat}
+                    className="flex-1 bg-transparent outline-none"
                   />
                   <button
                     onClick={handleSendMessage}
                     disabled={loadingChat}
-                    className="p-2 bg-wellness-500 text-white rounded-lg hover:bg-wellness-600 transition-colors disabled:opacity-50"
+                    className="wellness-button p-2"
                   >
                     <Send className="w-4 h-4" />
                   </button>
                 </div>
               </div>
+            </Card>
+          </div>
+
+          <Card className="wellness-card md:col-span-2 transform hover:scale-102 transition-all duration-300 bg-white/80">
+            <h2 className="text-xl font-semibold mb-4 text-wellness-700">
+              Meal Recognition
+            </h2>
+            <div className="border-2 border-dashed border-wellness-200 rounded-lg p-8 text-center hover:border-wellness-300 transition-colors">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="meal-image"
+              />
+              <p className="text-wellness-600 mb-4">
+                Drop a photo of your meal here or click to upload
+              </p>
+              <label
+                htmlFor="meal-image"
+                className="wellness-button cursor-pointer inline-block"
+              >
+                <Upload className="w-4 h-4 inline-block mr-2" />
+                Upload Image
+              </label>
             </div>
           </Card>
         </div>
 
-        <Card className="wellness-card mt-8 transform hover:scale-102 transition-all duration-300 backdrop-blur-sm bg-white/90">
-          <div className="p-6 space-y-6">
-            <h2 className="text-xl font-semibold text-wellness-700 flex items-center gap-2">
-              <Camera className="w-5 h-5" />
-              Meal Recognition
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex gap-4 items-center">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-wellness-600 mb-1">
-                      Meal Weight (grams)
-                    </label>
-                    <Input
-                      type="number"
-                      value={imageWeight}
-                      onChange={(e) => setImageWeight(e.target.value)}
-                      placeholder="Enter meal weight"
-                      className="wellness-input"
-                      min="0"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                      id="meal-image"
-                    />
-                    <label
-                      htmlFor="meal-image"
-                      className="wellness-button cursor-pointer inline-block w-full text-center"
-                    >
-                      <Upload className="w-4 h-4 inline-block mr-2" />
-                      Upload Image
-                    </label>
-                  </div>
-                </div>
+        <div className="mt-16 space-y-12">
+          <h2 className="text-2xl font-semibold text-wellness-700 text-center">
+            Your Wellness Journey
+          </h2>
 
-                {identifiedFoods.length > 0 && (
-                  <div className="p-4 bg-wellness-50 rounded-lg">
-                    <h3 className="font-medium text-wellness-700 mb-2">Identified Foods:</h3>
-                    <ul className="list-disc list-inside space-y-1 text-wellness-600">
-                      {identifiedFoods.map((food, index) => (
-                        <li key={index}>{food}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {imageNutrition && (
-                <div className="space-y-4">
-                  <h3 className="font-medium text-wellness-700">Nutritional Information:</h3>
-                  <div className="space-y-4">
-                    <ProgressBar value={imageNutrition.calories} max={2000} label="Calories" />
-                    <ProgressBar value={imageNutrition.protein} max={50} label="Protein" />
-                    <ProgressBar value={imageNutrition.carbs} max={300} label="Carbs" />
-                    <ProgressBar value={imageNutrition.fat} max={65} label="Fat" />
-                    <ProgressBar value={imageNutrition.fiber} max={30} label="Fiber" />
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {generalTips.map((tip, index) => (
+              <Card 
+                key={index} 
+                className="wellness-card hover:scale-102 transition-all duration-300 bg-white/80"
+              >
+                <div className="flex flex-col items-center text-center space-y-4">
+                  {tip.icon}
+                  <h3 className="font-semibold text-wellness-700">{tip.title}</h3>
+                  <p className="text-wellness-600 text-sm">{tip.description}</p>
                 </div>
-              )}
-            </div>
+              </Card>
+            ))}
           </div>
-        </Card>
+
+          <div className="space-y-6">
+            <h3 className="text-xl font-semibold text-wellness-700 text-center">
+              Understand Your Body Type
+            </h3>
+            
+            <div className="flex justify-center space-x-4">
+              {bodyTypes.map((type) => (
+                <button
+                  key={type.type}
+                  onClick={() => setSelectedBodyType(type.type)}
+                  className={`px-6 py-3 rounded-lg transition-all duration-300 ${
+                    selectedBodyType === type.type
+                      ? "bg-wellness-200 text-wellness-700 shadow-md"
+                      : "bg-wellness-50 text-wellness-600 hover:bg-wellness-100"
+                  }`}
+                >
+                  {type.type}
+                </button>
+              ))}
+            </div>
+
+            {selectedBodyType && (
+              <Card className="wellness-card animate-fade-in bg-white/80">
+                {bodyTypes
+                  .filter((type) => type.type === selectedBodyType)
+                  .map((type) => (
+                    <div key={type.type} className="space-y-6">
+                      <div className="space-y-2">
+                        <h4 className="text-lg font-semibold text-wellness-700">
+                          {type.type}
+                        </h4>
+                        <p className="text-wellness-600">{type.description}</p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h5 className="font-medium text-wellness-700">Common Goals:</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {type.goals.map((goal, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center space-x-2 text-wellness-600"
+                            >
+                              <ArrowRight className="w-4 h-4 text-wellness-500" />
+                              <span>{goal}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h5 className="font-medium text-wellness-700">
+                          Recommended Approach:
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {type.tips.map((tip, index) => (
+                            <div
+                              key={index}
+                              className="bg-wellness-50 p-4 rounded-lg text-wellness-600"
+                            >
+                              {tip}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </Card>
+            )}
+          </div>
+        </div>
       </div>
     </Layout>
   );
