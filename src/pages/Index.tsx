@@ -41,6 +41,9 @@ const Index = () => {
     { role: 'assistant', content: "👋 Hi! I'm your friendly nutrition assistant. How can I help you today?" }
   ]);
   const [loadingChat, setLoadingChat] = useState(false);
+  const [imageWeight, setImageWeight] = useState("100");
+  const [identifiedFoods, setIdentifiedFoods] = useState<string[]>([]);
+  const [imageNutrition, setImageNutrition] = useState<NutritionalInfo | null>(null);
 
   const foodCategories = {
     'Proteins': [
@@ -290,13 +293,12 @@ const Index = () => {
           },
           body: JSON.stringify({
             type: 'image',
-            message: base64String
+            message: base64String,
+            weight: imageWeight
           }),
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Error response:', errorText);
           throw new Error('Failed to analyze image');
         }
 
@@ -305,10 +307,21 @@ const Index = () => {
           throw new Error(data.error);
         }
 
-        toast({
-          title: "Image Analysis Complete",
-          description: data,
-        });
+        if (data.nutrition) {
+          setImageNutrition(data.nutrition);
+          setIdentifiedFoods(data.identified_foods);
+          toast({
+            title: "Analysis Complete",
+            description: "Image analyzed successfully!",
+          });
+        } else {
+          setIdentifiedFoods(data.identified_foods.split('\n').filter((f: string) => f.trim()));
+          setImageNutrition(null);
+          toast({
+            title: "Foods Identified",
+            description: "Upload complete! Enter weight for nutritional analysis.",
+          });
+        }
       } catch (error) {
         console.error('Image analysis error:', error);
         toast({
@@ -534,24 +547,61 @@ const Index = () => {
             <h2 className="text-xl font-semibold mb-4 text-wellness-700">
               Meal Recognition
             </h2>
-            <div className="border-2 border-dashed border-wellness-200 rounded-lg p-8 text-center hover:border-wellness-300 transition-colors">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                id="meal-image"
-              />
-              <p className="text-wellness-600 mb-4">
-                Drop a photo of your meal here or click to upload
-              </p>
-              <label
-                htmlFor="meal-image"
-                className="wellness-button cursor-pointer inline-block"
-              >
-                <Upload className="w-4 h-4 inline-block mr-2" />
-                Upload Image
-              </label>
+            <div className="space-y-4">
+              <div className="flex gap-4 items-center">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-wellness-600 mb-1">
+                    Meal Weight (grams)
+                  </label>
+                  <Input
+                    type="number"
+                    value={imageWeight}
+                    onChange={(e) => setImageWeight(e.target.value)}
+                    placeholder="Enter meal weight"
+                    className="wellness-input"
+                  />
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    id="meal-image"
+                  />
+                  <label
+                    htmlFor="meal-image"
+                    className="wellness-button cursor-pointer inline-block w-full text-center"
+                  >
+                    <Upload className="w-4 h-4 inline-block mr-2" />
+                    Upload Image
+                  </label>
+                </div>
+              </div>
+
+              {identifiedFoods.length > 0 && (
+                <div className="mt-4 p-4 bg-wellness-50 rounded-lg">
+                  <h3 className="font-medium text-wellness-700 mb-2">Identified Foods:</h3>
+                  <ul className="list-disc list-inside space-y-1 text-wellness-600">
+                    {identifiedFoods.map((food, index) => (
+                      <li key={index}>{food}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {imageNutrition && (
+                <div className="mt-4">
+                  <h3 className="font-medium text-wellness-700 mb-4">Nutritional Information:</h3>
+                  <div className="space-y-4">
+                    <ProgressBar value={imageNutrition.calories} max={2000} label="Calories" />
+                    <ProgressBar value={imageNutrition.protein} max={50} label="Protein" />
+                    <ProgressBar value={imageNutrition.carbs} max={300} label="Carbs" />
+                    <ProgressBar value={imageNutrition.fat} max={65} label="Fat" />
+                    <ProgressBar value={imageNutrition.fiber} max={30} label="Fiber" />
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         </div>
